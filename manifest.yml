@@ -1,0 +1,10 @@
+---
+applications:
+- name: komyunghak-egov
+  memory: 1024M
+  disk_quota: 1024M
+  instances: 1
+  host: komyunghak-egov
+  domain: paas-ta.org
+  services:
+  - komyunghak-egov-db
