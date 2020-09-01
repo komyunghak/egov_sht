@@ -23,79 +23,126 @@ import egovframework.rte.ptl.mvc.tags.ui.pagination.PaginationInfo;
 @Controller
 public class BoardController {
 
-	@Resource(name = "EgovBBSAttributeManageService")
+   @Resource(name = "EgovBBSAttributeManageService")
     private EgovBBSAttributeManageService bbsAttrbService;
-	
-	@Resource(name = "propertiesService")
+   
+   @Resource(name = "propertiesService")
     protected EgovPropertyService propertyService;
-	
-	@Resource(name = "EgovBBSManageService")
+   
+   @Resource(name = "EgovBBSManageService")
     private EgovBBSManageService bbsMngService;
-	
-	/*
-	 * AdminLTE용 게시물에 대한 목록을 조회한다.
-	 */
-	@RequestMapping(value="/admin/board/selectBoard.do")
-	public String selectBoard(@ModelAttribute("searchVO") BoardVO boardVO, ModelMap model) throws Exception {
-		//게시판 Id 값 초기화 : KiK 20200824
-		//System.out.println("=========디버그=:" + boardVO.getBbsId());
-		if(boardVO.getBbsId() == "") {
-			boardVO.setBbsId("BBSMSTR_AAAAAAAAAAAA");
-		}
-		
-		LoginVO user = (LoginVO)EgovUserDetailsHelper.getAuthenticatedUser();
+   
+   /*
+    * AdminLTE용 게시물에 대한 상세보기.
+    */
+    @RequestMapping("/admin/board/viewBoard.do")
+       public String viewBoard(@ModelAttribute("searchVO") BoardVO boardVO, ModelMap model) throws Exception {
+          LoginVO user = new LoginVO();
+          if(EgovUserDetailsHelper.isAuthenticated()){
+             user = (LoginVO)EgovUserDetailsHelper.getAuthenticatedUser();
+         }
 
-		boardVO.setBbsId(boardVO.getBbsId());
-		boardVO.setBbsNm(boardVO.getBbsNm());
+         // 조회수 증가 여부 지정
+         boardVO.setPlusCount(true);
 
-		BoardMasterVO vo = new BoardMasterVO();
+         //---------------------------------
+         // 2009.06.29 : 2단계 기능 추가
+         //---------------------------------
+         if (!boardVO.getSubPageIndex().equals("")) {
+             boardVO.setPlusCount(false);
+         }
+         ////-------------------------------
 
-		vo.setBbsId(boardVO.getBbsId());
-		vo.setUniqId(user.getUniqId());
+         boardVO.setLastUpdusrId(user.getUniqId());
+         BoardVO vo = bbsMngService.selectBoardArticle(boardVO);
 
-		BoardMasterVO master = bbsAttrbService.selectBBSMasterInf(vo);
+         model.addAttribute("result", vo);
 
-		//-------------------------------
-		// 방명록이면 방명록 URL로 forward
-		//-------------------------------
-		if (master.getBbsTyCode().equals("BBST04")) {
-		    return "forward:/cop/bbs/selectGuestList.do";
-		}
-		////-----------------------------
+         model.addAttribute("sessionUniqId", user.getUniqId());
 
-		boardVO.setPageUnit(propertyService.getInt("pageUnit"));
-		boardVO.setPageSize(propertyService.getInt("pageSize"));
+         //----------------------------
+         // template 처리 (기본 BBS template 지정  포함)
+         //----------------------------
+         BoardMasterVO master = new BoardMasterVO();
 
-		PaginationInfo paginationInfo = new PaginationInfo();
+         master.setBbsId(boardVO.getBbsId());
+         master.setUniqId(user.getUniqId());
 
-		paginationInfo.setCurrentPageNo(boardVO.getPageIndex());
-		paginationInfo.setRecordCountPerPage(boardVO.getPageUnit());
-		paginationInfo.setPageSize(boardVO.getPageSize());
+         BoardMasterVO masterVo = bbsAttrbService.selectBBSMasterInf(master);
 
-		boardVO.setFirstIndex(paginationInfo.getFirstRecordIndex());
-		boardVO.setLastIndex(paginationInfo.getLastRecordIndex());
-		boardVO.setRecordCountPerPage(paginationInfo.getRecordCountPerPage());
+         if (masterVo.getTmplatCours() == null || masterVo.getTmplatCours().equals("")) {
+             masterVo.setTmplatCours("/css/egovframework/cop/bbs/egovBaseTemplate.css");
+         }
 
-		Map<String, Object> map = bbsMngService.selectBoardArticles(boardVO, vo.getBbsAttrbCode());
-		int totCnt = Integer.parseInt((String)map.get("resultCnt"));
+         model.addAttribute("brdMstrVO", masterVo);
 
-		paginationInfo.setTotalRecordCount(totCnt);
+         return "admin/board/view";
+       }
+   
+   /*
+    * AdminLTE용 게시물에 대한 목록을 조회한다.
+    */
+   @RequestMapping(value="/admin/board/selectBoard.do")
+   public String selectBoard(@ModelAttribute("searchVO") BoardVO boardVO, ModelMap model) throws Exception {
+      //게시판 Id 값 초기화 : KiK 20200824
+      //System.out.println("=========디버그=:" + boardVO.getBbsId());
+      if(boardVO.getBbsId() == "") {
+         boardVO.setBbsId("BBSMSTR_AAAAAAAAAAAA");
+      }
+      
+      LoginVO user = (LoginVO)EgovUserDetailsHelper.getAuthenticatedUser();
 
-		//-------------------------------
-		// 기본 BBS template 지정
-		//-------------------------------
-		if (master.getTmplatCours() == null || master.getTmplatCours().equals("")) {
-		    master.setTmplatCours("/css/egovframework/cop/bbs/egovBaseTemplate.css");
-		}
-		////-----------------------------
+      boardVO.setBbsId(boardVO.getBbsId());
+      boardVO.setBbsNm(boardVO.getBbsNm());
 
-		model.addAttribute("resultList", map.get("resultList"));
-		model.addAttribute("resultCnt", map.get("resultCnt"));
-		model.addAttribute("boardVO", boardVO);
-		model.addAttribute("brdMstrVO", master);
-		model.addAttribute("paginationInfo", paginationInfo);
-		
-		return "admin/board/list";
-	}
-	
+      BoardMasterVO vo = new BoardMasterVO();
+
+      vo.setBbsId(boardVO.getBbsId());
+      vo.setUniqId(user.getUniqId());
+
+      BoardMasterVO master = bbsAttrbService.selectBBSMasterInf(vo);
+
+      //-------------------------------
+      // 방명록이면 방명록 URL로 forward
+      //-------------------------------
+      if (master.getBbsTyCode().equals("BBST04")) {
+          return "forward:/cop/bbs/selectGuestList.do";
+      }
+      ////-----------------------------
+
+      boardVO.setPageUnit(propertyService.getInt("pageUnit"));
+      boardVO.setPageSize(propertyService.getInt("pageSize"));
+
+      PaginationInfo paginationInfo = new PaginationInfo();
+
+      paginationInfo.setCurrentPageNo(boardVO.getPageIndex());
+      paginationInfo.setRecordCountPerPage(boardVO.getPageUnit());
+      paginationInfo.setPageSize(boardVO.getPageSize());
+
+      boardVO.setFirstIndex(paginationInfo.getFirstRecordIndex());
+      boardVO.setLastIndex(paginationInfo.getLastRecordIndex());
+      boardVO.setRecordCountPerPage(paginationInfo.getRecordCountPerPage());
+
+      Map<String, Object> map = bbsMngService.selectBoardArticles(boardVO, vo.getBbsAttrbCode());
+      int totCnt = Integer.parseInt((String)map.get("resultCnt"));
+
+      paginationInfo.setTotalRecordCount(totCnt);
+
+      //-------------------------------
+      // 기본 BBS template 지정
+      //-------------------------------
+      if (master.getTmplatCours() == null || master.getTmplatCours().equals("")) {
+          master.setTmplatCours("/css/egovframework/cop/bbs/egovBaseTemplate.css");
+      }
+      ////-----------------------------
+
+      model.addAttribute("resultList", map.get("resultList"));
+      model.addAttribute("resultCnt", map.get("resultCnt"));
+      model.addAttribute("boardVO", boardVO);
+      model.addAttribute("brdMstrVO", master);
+      model.addAttribute("paginationInfo", paginationInfo);
+      
+      return "admin/board/list";
+   }
+   
 }
